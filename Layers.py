@@ -23,6 +23,7 @@ class FeatureExtractor(nn.Module):
         #! x: (batch_size, seq_length, num_latent)
         # Apply linear and LeakyReLU activation
         #* layer norm 추가
+        # print(f"input shape: {x.shape}")
         x = self.normalize(x)
         out = self.linear(x)
         out = self.leakyrelu(out)

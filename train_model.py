@@ -5,10 +5,12 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 import pandas as pd
 import numpy as np
-import wandb
+# import wandb
 from tqdm.auto import tqdm
 
 def train(factor_model, dataloader, optimizer, args):
+    if args.use_qlib is True:
+        return train_qlib(factor_model, dataloader, optimizer, args)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     factor_model.to(device)
     factor_model.train()
@@ -32,11 +34,42 @@ def train(factor_model, dataloader, optimizer, args):
     avg_loss = total_loss / len(dataloader.dataset)
     return avg_loss
 
+def train_qlib(factor_model, dataloader, optimizer, args):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # factor_model.to(device)
+    factor_model.train()
+    losses = []
+    with tqdm(total=len(dataloader)-args.seq_len+1) as pbar:
+        for data in dataloader:
+            char = data[:, :, 0:-1]
+            returns = data[:, -1, -1].reshape(-1,1)
+            if char.shape[1] != args.seq_len:
+                continue
+            # print(f"train_qlib char.shape: {char.shape} returns.shape: {returns.shape}")
+            inputs = char.to(device)
+            labels = returns[:,-1].reshape(-1,1).to(device)
+            # inputs = inputs.float()
+            # labels = labels.float()
+            
+            optimizer.zero_grad()
+            loss, reconstruction, factor_mu, factor_sigma, pred_mu, pred_sigma = factor_model(inputs.float(), labels.float())
+            losses.append(loss.item())
+            loss.backward()
+            optimizer.step()
+            pbar.update(1)
+        # print(loss)
+    avg_loss = np.mean(losses)
+    return avg_loss
 
+        # for data in data_loader:
+        #     feature = data[:, :, 0:-1].to(self.device)
+        #     label = data[:, -1, -1].to(self.device)
 @torch.no_grad()
 def validate(factor_model, dataloader, args):
+    if args.use_qlib is True:
+        return validate_qlib(factor_model, dataloader, args)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    factor_model.to(device)
+    # factor_model.to(device)
     factor_model.eval()
     total_loss = 0
     with tqdm(total=len(dataloader)-args.seq_len+1) as pbar:
@@ -52,6 +85,29 @@ def validate(factor_model, dataloader, args):
             total_loss += loss.item() * inputs.size(0)
             pbar.update(1)
     avg_loss = total_loss / len(dataloader.dataset)
+    return avg_loss
+
+@torch.no_grad()
+def validate_qlib(factor_model, dataloader, args):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    factor_model.to(device)
+    factor_model.eval()
+    losses = []
+    with tqdm(total=len(dataloader)-args.seq_len+1) as pbar:
+        for data in dataloader:
+            char = data[:, :, 0:-1]
+            returns = data[:, -1, -1].reshape(-1,1)
+            if char.shape[1] != args.seq_len:
+                continue
+            inputs = char.to(device)
+            labels = returns[:,-1].reshape(-1,1).to(device)
+            # inputs = inputs.float()
+            # labels = labels.float()
+            
+            loss, reconstruction, factor_mu, factor_sigma, pred_mu, pred_sigma = factor_model(inputs.float(), labels.float())
+            losses.append(loss.item())
+            pbar.update(1)
+    avg_loss = np.mean(losses)
     return avg_loss
 
 @torch.no_grad()

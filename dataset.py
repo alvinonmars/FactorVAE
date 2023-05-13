@@ -77,3 +77,12 @@ class StockDataset(torch.utils.data.Dataset):
         
         # label 도출 값은 반드시 잘라서 써야함.
         return input_data, label
+
+    def dfgetitem(self, idx):
+
+        idx_list = [300*i + idx for i in range(self.sequence_length) if 300*i + idx < len(self.df)]
+
+        data = self.df.iloc[idx_list, :-1]
+        label = self.df.iloc[idx_list, -1]
+        return data, label
+    

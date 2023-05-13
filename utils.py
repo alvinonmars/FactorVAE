@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import random
 import os
+from tqdm.auto import tqdm
 from dataclasses import dataclass, field
 from Layers import *
 
@@ -80,6 +81,8 @@ def generate_prediction_scores(model, test_dataloader, test_dataset, args):
     with tqdm(total=len(test_dataloader)-args.seq_length+1) as pbar:
         for i, (char, _) in (enumerate(test_dataloader)):
             char = char.to(device)
+            if i==0:
+                print(f'char shape: {char.shape} type: {type(char)} device: {char.device} total:{len(test_dataloader)-args.seq_length+1} ')
             if char.shape[1] != args.seq_length:
                 continue
             predictions = model.prediction(char.float())
